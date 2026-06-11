@@ -149,6 +149,9 @@ activemq-data/
 
 # Environments
 .env
+.env.prod
+media/
+staticfiles/
 .envrc
 .venv
 env/
