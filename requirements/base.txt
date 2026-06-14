@@ -1,0 +1,13 @@
+django>=5.0
+djangorestframework
+djangorestframework-simplejwt
+psycopg2-binary
+redis
+django-redis
+celery
+pillow
+python-dotenv
+httpx
+drf-spectacular
+sentry-sdk
+gunicorn
