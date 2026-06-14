@@ -1,0 +1,106 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  django:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    env_file: .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    env_file: .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config worker --loglevel=warning --concurrency=2
+    restart: always
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    env_file: .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config beat --loglevel=warning
+    restart: always
+
+  bot:
+    build:
+      context: .
+      dockerfile: docker/bot/Dockerfile
+    env_file: .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - static_data:/app/staticfiles
+      - media_data:/app/media
+    ports:
+      - "80:80"
+    depends_on:
+      - django
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:
+  static_data:
