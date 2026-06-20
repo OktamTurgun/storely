@@ -2,9 +2,11 @@ from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.core.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 from .models import Debt
 from .serializers import DebtSerializer, DebtPaySerializer
 from .services import DebtService
+from apps.stores.models import Store
 
 
 class DebtListView(generics.ListAPIView):
@@ -14,10 +16,19 @@ class DebtListView(generics.ListAPIView):
     def get_queryset(self):
         store_id = self.kwargs['store_id']
         closed = self.request.query_params.get('closed', 'false') == 'true'
+
+        # store_id emas — store obyekti berilishi kerak
+        store = get_object_or_404(
+            Store,
+            id=store_id,
+            owner=self.request.user,
+            is_deleted=False,
+        )
+
         return DebtService.get_store_debts(
-            store_id=store_id,
+            store=store,
             closed=closed,
-        ).filter(store__owner=self.request.user)
+        )
 
 
 class DebtPayView(APIView):

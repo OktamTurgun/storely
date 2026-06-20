@@ -13,7 +13,6 @@ from apps.reports.views import TodaySummaryView, MonthlySummaryView
 urlpatterns = [
     # Stores
     path('stores/', StoreListCreateView.as_view()),
-    path('stores/<uuid:pk>/', StoreDetailView.as_view()),
 
     # Customers
     path('stores/<uuid:store_id>/customers/', CustomerListCreateView.as_view()),
@@ -25,7 +24,7 @@ urlpatterns = [
     path('stores/<uuid:store_id>/products/<uuid:pk>/', ProductDetailView.as_view()),
     path('stores/<uuid:store_id>/products/low-stock/', LowStockView.as_view()),
 
-    # Variants  ← yangi
+    # Variants
     path('stores/<uuid:store_id>/products/<uuid:product_id>/variants/', ProductVariantListCreateView.as_view()),
     path('variants/<uuid:pk>/', ProductVariantDetailView.as_view()),
     path('variants/restock/', RestockView.as_view()),
@@ -42,4 +41,7 @@ urlpatterns = [
     # Reports
     path('stores/<uuid:store_id>/reports/today/', TodaySummaryView.as_view()),
     path('stores/<uuid:store_id>/reports/monthly/', MonthlySummaryView.as_view()),
+
+    # Store detail — ENG OXIRDA bo'lishi kerak
+    path('stores/<uuid:pk>/', StoreDetailView.as_view()),
 ]
