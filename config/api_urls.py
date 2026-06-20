@@ -3,7 +3,8 @@ from apps.stores.views import StoreListCreateView, StoreDetailView
 from apps.customers.views import CustomerListCreateView, CustomerDetailView
 from apps.inventory.views import (
     CategoryListView, ProductListCreateView, ProductDetailView,
-    ProductVariantDetailView, RestockView, LowStockView
+    ProductVariantListCreateView, ProductVariantDetailView,  # ← yangi
+    RestockView, LowStockView
 )
 from apps.sales.views import SaleListView, SaleCreateView, SaleDetailView
 from apps.debts.views import DebtListView, DebtPayView
@@ -23,6 +24,9 @@ urlpatterns = [
     path('stores/<uuid:store_id>/products/', ProductListCreateView.as_view()),
     path('stores/<uuid:store_id>/products/<uuid:pk>/', ProductDetailView.as_view()),
     path('stores/<uuid:store_id>/products/low-stock/', LowStockView.as_view()),
+
+    # Variants  ← yangi
+    path('stores/<uuid:store_id>/products/<uuid:product_id>/variants/', ProductVariantListCreateView.as_view()),
     path('variants/<uuid:pk>/', ProductVariantDetailView.as_view()),
     path('variants/restock/', RestockView.as_view()),
 
