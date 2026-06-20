@@ -103,3 +103,23 @@ class LowStockView(APIView):
 
         variants = ProductService.get_low_stock(store)
         return Response(ProductVariantSerializer(variants, many=True).data)
+    
+class ProductVariantListCreateView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ProductVariantSerializer
+
+    def get_queryset(self):
+        return ProductVariant.objects.filter(
+            product__store__owner=self.request.user,
+            product_id=self.kwargs['product_id'],
+            is_deleted=False,
+        )
+
+    def perform_create(self, serializer):
+        from django.shortcuts import get_object_or_404
+        product = get_object_or_404(
+            Product,
+            id=self.kwargs['product_id'],
+            store__owner=self.request.user,
+        )
+        serializer.save(product=product)
