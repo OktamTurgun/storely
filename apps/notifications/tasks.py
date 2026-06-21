@@ -1,6 +1,8 @@
 from celery import shared_task
 from django.db.models import F
 
+from apps.notifications.telegram import send_telegram_message
+
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def check_low_stock_all_stores(self):
@@ -29,7 +31,7 @@ def check_low_stock_all_stores(self):
                             'min_threshold': v.min_threshold,
                         }
                         for v in low_variants
-                    ]
+                    ],
                 )
             except Exception as exc:
                 self.retry(exc=exc)
@@ -54,7 +56,8 @@ def notify_low_stock(store_id, variants):
     """Bitta do'kon uchun kam qolgan mahsulotlar xabari."""
     from apps.stores.models import Store
 
-    store = Store.objects.get(id=store_id)
+    store = Store.objects.select_related('owner').get(id=store_id)
+    chat_id = store.owner.telegram_id
 
     lines = [f"⚠️ *{store.name}* — kam qolgan mahsulotlar:\n"]
     for v in variants:
@@ -63,11 +66,7 @@ def notify_low_stock(store_id, variants):
             f"(chegara: {v['min_threshold']})"
         )
 
-    message = "\n".join(lines)
-
-    # TODO: Telegram bot tayyor bo'lgach:
-    # await bot.send_message(chat_id=store.owner.telegram_id, text=message)
-    print(message)
+    send_telegram_message(chat_id, "\n".join(lines))
 
 
 @shared_task
@@ -76,7 +75,8 @@ def send_daily_report(store_id):
     from apps.stores.models import Store
     from apps.reports.services import ReportService
 
-    store = Store.objects.get(id=store_id)
+    store = Store.objects.select_related('owner').get(id=store_id)
+    chat_id = store.owner.telegram_id
     data = ReportService.today_summary(store)
 
     lines = [
@@ -91,8 +91,4 @@ def send_daily_report(store_id):
             f"— {p['total_sum']:,} so'm"
         )
 
-    message = "\n".join(lines)
-
-    # TODO: Telegram bot tayyor bo'lgach:
-    # await bot.send_message(chat_id=store.owner.telegram_id, text=message)
-    print(message)
+    send_telegram_message(chat_id, "\n".join(lines))
