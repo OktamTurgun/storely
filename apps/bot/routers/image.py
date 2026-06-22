@@ -13,6 +13,7 @@ router = Router()
 
 
 class ImageSaleState(StatesGroup):
+    waiting_variant = State()
     waiting_quantity = State()
 
 
@@ -63,15 +64,17 @@ async def image_handler(message: Message, bot: Bot, state: FSMContext, user):
             )
             return
 
-        variant = await sync_to_async(
-            ProductVariant.objects.filter(
-                product__store=store,
-                product__name__iexact=result['product_name'],
-                is_deleted=False,
-            ).select_related('product').first
+        variants = await sync_to_async(
+            lambda: list(
+                ProductVariant.objects.filter(
+                    product__store=store,
+                    product__name__iexact=result['product_name'],
+                    is_deleted=False,
+                ).select_related('product')
+            )
         )()
 
-        if not variant:
+        if not variants:
             await message.answer(
                 f"Mahsulot topildi: *{result['product_name']}*\n"
                 f"Lekin omborda variant yo'q."
@@ -80,36 +83,96 @@ async def image_handler(message: Message, bot: Bot, state: FSMContext, user):
 
         confidence_icon = "✅" if result['confidence'] == 'high' else "⚠️"
 
-        await message.answer(
-            f"{confidence_icon} *{variant.product.name} — {variant.name}*\n"
-            f"_{result.get('description', '')}_\n\n"
-            f"Omborda: *{variant.quantity}* dona\n"
-            f"Narxi: *{variant.price:,}* so'm\n\n"
-            f"Nechta sotildi?",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [
-                    InlineKeyboardButton(text="1", callback_data="qty_1"),
-                    InlineKeyboardButton(text="2", callback_data="qty_2"),
-                    InlineKeyboardButton(text="5", callback_data="qty_5"),
-                    InlineKeyboardButton(text="10", callback_data="qty_10"),
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="❌ Bekor qilish",
-                        callback_data="qty_cancel"
-                    )
-                ]
-            ])
-        )
+        if len(variants) == 1:
+            variant = variants[0]
+            await message.answer(
+                f"{confidence_icon} *{variant.product.name} — {variant.name}*\n"
+                f"_{result.get('description', '')}_\n\n"
+                f"Omborda: *{variant.quantity}* dona\n"
+                f"Narxi: *{variant.price:,}* so'm\n\n"
+                f"Nechta sotildi?",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [
+                        InlineKeyboardButton(text="1", callback_data="qty_1"),
+                        InlineKeyboardButton(text="2", callback_data="qty_2"),
+                        InlineKeyboardButton(text="5", callback_data="qty_5"),
+                        InlineKeyboardButton(text="10", callback_data="qty_10"),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="❌ Bekor qilish",
+                            callback_data="qty_cancel"
+                        )
+                    ]
+                ])
+            )
 
-        await state.set_state(ImageSaleState.waiting_quantity)
-        await state.update_data(
-            variant_id=str(variant.id),
-            store_id=str(store.id),
-        )
+            await state.set_state(ImageSaleState.waiting_quantity)
+            await state.update_data(
+                variant_id=str(variant.id),
+                store_id=str(store.id),
+            )
+        else:
+            buttons = []
+            for v in variants:
+                buttons.append([
+                    InlineKeyboardButton(
+                        text=f"{v.name} | {v.price:,} so'm | {v.quantity} ta",
+                        callback_data=f"img_variant_{v.id}"
+                    )
+                ])
+            buttons.append([
+                InlineKeyboardButton(text="❌ Bekor qilish", callback_data="qty_cancel")
+            ])
+            await message.answer(
+                f"{confidence_icon} Mahsulot topildi: *{variants[0].product.name}*\n"
+                f"_{result.get('description', '')}_\n\n"
+                f"Qaysi variantni tanlaysiz?",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+            )
+            await state.set_state(ImageSaleState.waiting_variant)
+            await state.update_data(
+                store_id=str(store.id),
+                description=result.get('description', ''),
+                confidence_icon=confidence_icon,
+            )
 
     finally:
         os.unlink(tmp_path)
+
+
+@router.callback_query(ImageSaleState.waiting_variant, F.data.startswith('img_variant_'))
+async def image_variant_chosen(callback: CallbackQuery, state: FSMContext):
+    variant_id = callback.data.replace("img_variant_", "")
+    variant = await sync_to_async(
+        lambda: ProductVariant.objects.select_related('product').get(id=variant_id)
+    )()
+    data = await state.get_data()
+    await state.update_data(variant_id=variant_id)
+    await state.set_state(ImageSaleState.waiting_quantity)
+
+    await callback.message.edit_text(
+        f"{data.get('confidence_icon', '')} *{variant.product.name} — {variant.name}*\n"
+        f"_{data.get('description', '')}_\n\n"
+        f"Omborda: *{variant.quantity}* dona\n"
+        f"Narxi: *{variant.price:,}* so'm\n\n"
+        f"Nechta sotildi?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="1", callback_data="qty_1"),
+                InlineKeyboardButton(text="2", callback_data="qty_2"),
+                InlineKeyboardButton(text="5", callback_data="qty_5"),
+                InlineKeyboardButton(text="10", callback_data="qty_10"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Bekor qilish",
+                    callback_data="qty_cancel"
+                )
+            ]
+        ])
+    )
+
 
 
 @router.callback_query(ImageSaleState.waiting_quantity, F.data.startswith('qty_'))
