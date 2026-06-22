@@ -1,5 +1,6 @@
 import os
 import tempfile
+import logging
 from aiogram import Router, F, Bot
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -16,6 +17,7 @@ from apps.inventory.models import ProductVariant
 from apps.customers.models import Customer
 from apps.sales.models import Sale
 
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -59,10 +61,26 @@ async def voice_handler(message: Message, bot: Bot, state: FSMContext, user):
         tmp_path = tmp.name
 
     try:
-        text = await transcribe_voice(tmp_path)
-        await message.answer(f"🗣 Tanildi: _{text}_")
+        try:
+            text = await transcribe_voice(tmp_path)
+            await message.answer(f"🗣 Tanildi: _{text}_")
+        except Exception as e:
+            logger.error(f"Voice transcription error: {e}", exc_info=True)
+            await message.answer(
+                "❌ Ovozni aniqlash xizmatida xatolik yuz berdi (Masalan: OpenAI limiti tugagan yoki tarmoq xatosi). "
+                "Iltimos, keyinroq urinib ko'ring yoki yozma ravishda kiriting."
+            )
+            return
 
-        command = await parse_command_ai(text)
+        try:
+            command = await parse_command_ai(text)
+        except Exception as e:
+            logger.error(f"Voice command parsing error: {e}", exc_info=True)
+            await message.answer(
+                "❌ Buyruqni tahlil qilishda xatolik yuz berdi (Masalan: OpenAI limiti yoki tarmoq xatosi). "
+                "Iltimos, keyinroq urinib ko'ring yoki yozma ravishda kiriting."
+            )
+            return
 
         if not command:
             await message.answer(
@@ -561,8 +579,9 @@ async def _complete_voice_sale(event, state, store, variant, quantity, payment_t
             lambda: ProductVariant.objects.get(id=variant.id)
         )()
 
-        customer_text = f"👤 Mijoz: *{customer.name}*\n" if customer else ""
-        now = tz.localtime(sale.sold_at).strftime('%d.%m.%Y %H:%M')
+        warning = ""
+        if variant_updated.quantity <= variant_updated.min_threshold:
+            warning = f"\n\n⚠️ *Diqqat! Mahsulot kam qoldi!*\nMinimal chegara: {variant_updated.min_threshold} dona"
 
         text = (
             f"✅ *Sotuv qayd etildi!*\n\n"
@@ -573,6 +592,7 @@ async def _complete_voice_sale(event, state, store, variant, quantity, payment_t
             f"{customer_text}"
             f"📊 Omborda qoldi: *{variant_updated.quantity}* dona\n"
             f"🕐 Vaqt: *{now}*"
+            f"{warning}"
         )
 
         if isinstance(event, CallbackQuery):

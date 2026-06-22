@@ -1,5 +1,6 @@
 import os
 import tempfile
+import logging
 from aiogram import Router, F, Bot
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import CallbackQuery
@@ -8,6 +9,8 @@ from aiogram.fsm.state import State, StatesGroup
 from asgiref.sync import sync_to_async
 from apps.bot.services.vision import recognize_product
 from apps.inventory.models import ProductVariant
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -55,7 +58,15 @@ async def image_handler(message: Message, bot: Bot, state: FSMContext, user):
             )
             return
 
-        result = await recognize_product(tmp_path, product_names)
+        try:
+            result = await recognize_product(tmp_path, product_names)
+        except Exception as e:
+            logger.error(f"Image product recognition error: {e}", exc_info=True)
+            await message.answer(
+                "❌ Rasmni aniqlash xizmatida xatolik yuz berdi (Masalan: OpenAI limiti yoki tarmoq xatosi). "
+                "Iltimos, keyinroq urinib ko'ring."
+            )
+            return
 
         if not result or not result.get('product_name'):
             await message.answer(
@@ -202,11 +213,20 @@ async def quantity_chosen(callback: CallbackQuery, state: FSMContext, user):
             items=[{'variant': variant, 'quantity': quantity}],
             payment_type=Sale.PaymentType.CASH,
         )
+        variant_updated = await sync_to_async(
+            lambda: ProductVariant.objects.get(id=variant.id)
+        )()
+        warning = ""
+        if variant_updated.quantity <= variant_updated.min_threshold:
+            warning = f"\n\n⚠️ *Diqqat! Mahsulot kam qoldi!*\nMinimal chegara: {variant_updated.min_threshold} dona"
+
         await callback.message.edit_text(
             f"✅ *Sotuv qayd etildi!*\n\n"
             f"📦 {variant.product.name} — {variant.name}\n"
             f"🔢 Miqdor: *{quantity}* dona\n"
-            f"💰 Summa: *{variant.price * quantity:,}* so'm"
+            f"💰 Summa: *{variant.price * quantity:,}* so'm\n"
+            f"📊 Omborda qoldi: *{variant_updated.quantity}* dona"
+            f"{warning}"
         )
     except ValidationError as e:
         await callback.message.edit_text(f"❌ Xato: {e.message}")
