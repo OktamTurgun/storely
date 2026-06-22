@@ -305,6 +305,10 @@ async def _complete_sale(event, state, data, payment_type, customer=None):
         customer_text = f"👤 Mijoz: *{customer.name}*\n" if customer else ""
         now = tz.localtime(sale.sold_at).strftime('%d.%m.%Y %H:%M')
 
+        warning = ""
+        if variant_updated.quantity <= variant_updated.min_threshold:
+            warning = f"\n\n⚠️ *Diqqat! Mahsulot kam qoldi!*\nMinimal chegara: {variant_updated.min_threshold} dona"
+
         text = (
             f"✅ *Sotuv qayd etildi!*\n\n"
             f"📦 {data['variant_name']}\n"
@@ -314,6 +318,7 @@ async def _complete_sale(event, state, data, payment_type, customer=None):
             f"{customer_text}"
             f"📊 Omborda qoldi: *{variant_updated.quantity}* dona\n"
             f"🕐 Vaqt: *{now}*"
+            f"{warning}"
         )
 
         if isinstance(event, CallbackQuery):

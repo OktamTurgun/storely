@@ -1,5 +1,6 @@
 import asyncio
 import django
+import logging
 import os
 import sys
 
@@ -16,8 +17,14 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from django.conf import settings
 
-from apps.bot.routers import start, sale, stock, debt, report, voice, image
+from apps.bot.routers import start, sale, stock, debt, report, voice, image, products, customers, settings as settings_router
 from apps.bot.middlewares.auth import AuthMiddleware, RequireAuthMiddleware
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 async def main():
@@ -39,12 +46,23 @@ async def main():
     auth_router.include_router(stock.router)
     auth_router.include_router(debt.router)
     auth_router.include_router(report.router)
+    auth_router.include_router(products.router)
+    auth_router.include_router(customers.router)
+    auth_router.include_router(settings_router.router)
 
     dp.include_router(start.router)
     dp.include_router(auth_router)
 
-    await dp.start_polling(bot)
+    logger.info("🤖 Bot ishga tushdi!")
+    try:
+        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+    finally:
+        await bot.session.close()
+        logger.info("🛑 Bot to'xtatildi.")
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("🛑 Foydalanuvchi tomonidan to'xtatildi (Ctrl+C).")
