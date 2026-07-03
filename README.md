@@ -1,6 +1,6 @@
 # Storely 🏪
 
-> AI-powered inventory management system for small Uzbek retail shops.
+> AI-powered inventory management system for small local retail shops.
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://python.org)
 [![Django](https://img.shields.io/badge/Django-6.0-green)](https://djangoproject.com)
@@ -12,7 +12,7 @@
 
 ## 📌 Problem
 
-Small retail shops in Uzbekistan still manage inventory
+Small retail shops in many regions still manage inventory
 with paper notebooks:
 - Data gets lost or damaged
 - No search, no statistics
@@ -31,7 +31,7 @@ accessible via Telegram — no app installation required.
 - 💳 **Debt management** — track who owes what, process payments
 - 📊 **Reports** — daily and monthly summaries
 - ⚠️ **Low stock alerts** — automatic Telegram notifications
-- 🎤 **Voice input** — speak in Uzbek, Storely understands
+- 🎤 **Voice input** — speak naturally, Storely understands
 - 🖼️ **Image recognition** — photograph a product to log a sale
 - 🤖 **Telegram bot** — full control without a web interface
 - 🏪 **Multi-store** — one account, multiple shops
@@ -166,7 +166,7 @@ GET    /api/v1/stores/{store_id}/reports/monthly/?year=2026&month=6
 | Debt list | "💳 Qarz" |
 | Pay debt | "✅ To'lash" |
 | Log sale | 📷 Photo of product |
-| Any action | 🎤 Voice message in Uzbek |
+| Any action | 🎤 Voice message |
 
 ### Voice examples
 ```
